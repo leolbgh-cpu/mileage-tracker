@@ -1,0 +1,18 @@
+{
+  "name": "Mileage Tracker",
+  "short_name": "Mileage",
+  "description": "Personal mileage and trip log, kept on this device.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f6f5",
+  "theme_color": "#0f9d78",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

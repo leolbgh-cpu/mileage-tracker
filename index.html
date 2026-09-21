@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Mileage Tracker</title>
+    <meta name="theme-color" content="#0f9d78" />
+    <meta name="description" content="Personal mileage and trip log, kept on this device." />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/icon.svg" />
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <div>
+          <h1>Mileage</h1>
+          <p id="topbar-subtitle" class="muted"></p>
+        </div>
+        <div id="recording-pill" class="pill hidden" role="status">
+          <span class="dot"></span>
+          <span id="recording-text">Recording</span>
+        </div>
+      </header>
+
+      <div id="recording-banner" class="recording-banner hidden">
+        <div>
+          <strong id="recording-distance">0.0 km</strong>
+          <span id="recording-elapsed" class="muted">0m</span>
+        </div>
+        <button id="stop-recording-btn" class="btn btn-danger">Stop</button>
+      </div>
+
+      <nav id="inbox-tabs" class="tabs hidden">
+        <button data-tab="ready" class="tab active" type="button">Ready</button>
+        <button data-tab="review" class="tab" type="button">Needs review</button>
+      </nav>
+
+      <main id="view-root" aria-live="polite"></main>
+
+      <nav class="bottom-nav">
+        <button data-view="inbox" class="nav-btn active" type="button">
+          <span class="nav-icon" aria-hidden="true">&#9776;</span>Inbox
+        </button>
+        <button data-view="all" class="nav-btn" type="button">
+          <span class="nav-icon" aria-hidden="true">&#8801;</span>All trips
+        </button>
+        <button id="add-trip-btn" class="fab" type="button" aria-label="Add trip">+</button>
+        <button data-view="report" class="nav-btn" type="button">
+          <span class="nav-icon" aria-hidden="true">&#8801;</span>Report
+        </button>
+        <button data-view="settings" class="nav-btn" type="button">
+          <span class="nav-icon" aria-hidden="true">&#9881;</span>Settings
+        </button>
+      </nav>
+    </div>
+
+    <dialog id="add-choice-dialog">
+      <form method="dialog" class="sheet">
+        <h2>Add a trip</h2>
+        <button id="start-tracking-btn" type="button" class="btn btn-primary btn-block">
+          Start tracking now
+        </button>
+        <p class="muted small">
+          Uses this device's GPS while the app stays open. Won't keep tracking if you lock the
+          phone or switch apps.
+        </p>
+        <button id="add-manual-btn" type="button" class="btn btn-secondary btn-block">
+          Add trip manually
+        </button>
+        <button value="cancel" class="btn btn-text btn-block">Cancel</button>
+      </form>
+    </dialog>
+
+    <dialog id="trip-dialog">
+      <form id="trip-form" class="sheet">
+        <h2 id="trip-dialog-title">Trip</h2>
+
+        <label
+          >Date
+          <input type="date" id="trip-date" required />
+        </label>
+
+        <div class="row">
+          <label
+            >Start time
+            <input type="time" id="trip-start-time" required />
+          </label>
+          <label
+            >End time
+            <input type="time" id="trip-end-time" required />
+          </label>
+        </div>
+
+        <label
+          >Start location
+          <input type="text" id="trip-start-label" placeholder="e.g. Home" />
+        </label>
+
+        <label
+          >End location
+          <input type="text" id="trip-end-label" placeholder="e.g. Office" />
+        </label>
+
+        <label
+          >Distance (<span id="trip-distance-unit">km</span>)
+          <input type="number" id="trip-distance" min="0" step="0.1" required />
+        </label>
+
+        <label
+          >Purpose
+          <select id="trip-purpose">
+            <option value="">Unset</option>
+            <option value="business">Business</option>
+            <option value="personal">Personal</option>
+            <option value="commute">Commute</option>
+          </select>
+        </label>
+
+        <label
+          >Vehicle
+          <input type="text" id="trip-vehicle" />
+        </label>
+
+        <label
+          >Notes
+          <textarea id="trip-notes" rows="2"></textarea>
+        </label>
+
+        <div class="row">
+          <button type="submit" class="btn btn-primary btn-block">Save</button>
+          <button type="button" id="trip-delete-btn" class="btn btn-danger btn-block hidden">
+            Delete
+          </button>
+        </div>
+        <button value="cancel" formmethod="dialog" class="btn btn-text btn-block">Cancel</button>
+      </form>
+    </dialog>
+
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>
