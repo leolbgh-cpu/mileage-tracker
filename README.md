@@ -51,11 +51,19 @@ Then open the printed URL on your phone (same Wi-Fi network) or in your
 desktop browser, and optionally "Add to Home Screen" for the app-like
 experience.
 
-## Deploying it (optional)
+## Deploying it
 
-Since it's fully static, you can deploy this repo as-is to any static host —
-Cloudflare Pages, Netlify, GitHub Pages, etc. There's no backend, database, or
-secrets involved.
+**Live app:** https://leolbgh-cpu.github.io/mileage-tracker/
+
+This repo deploys automatically to GitHub Pages via
+[`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml) on
+every push to `main`. That requires two one-time settings on GitHub (already
+done for this repo): the repository visibility set to public, and
+**Settings → Pages → Build and deployment → Source** set to "GitHub Actions".
+
+Since it's fully static with no backend, database, or secrets, you can just
+as easily deploy it to Cloudflare Pages, Netlify, Vercel, or any other static
+host instead.
 
 ## Data & privacy
 
