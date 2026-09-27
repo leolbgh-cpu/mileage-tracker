@@ -16,6 +16,10 @@ import {
   fromStoredKm,
   tripsToCsv,
   downloadFile,
+  escapeHtml,
+  sanitizeImportedTrip,
+  sanitizeImportedSettings,
+  MAX_IMPORTED_TRIPS,
 } from "./util.js";
 
 const state = {
@@ -265,25 +269,29 @@ function emptyState(title, body) {
 
 function tripRow(trip, { showReadyAction } = {}) {
   const amount = trip.purpose ? formatAmount(trip.distanceKm, state.settings) : "";
-  return `<li class="trip-row" data-id="${trip.id}">
-    <button class="trip-row-main" data-open="${trip.id}" type="button">
+  const id = escapeHtml(trip.id);
+  const purpose = escapeHtml(trip.purpose || "unset");
+  const startLabel = escapeHtml(trip.startLabel || formatTime(trip.startTime));
+  const endLabel = escapeHtml(trip.endLabel || formatTime(trip.endTime));
+  return `<li class="trip-row" data-id="${id}">
+    <button class="trip-row-main" data-open="${id}" type="button">
       <div class="trip-row-top">
         <span class="trip-date">${formatDate(trip.startTime)}</span>
         <span class="trip-distance">${formatDistance(trip.distanceKm, state.settings)}</span>
       </div>
       <div class="trip-route">
-        <span>${trip.startLabel || formatTime(trip.startTime)}</span>
+        <span>${startLabel}</span>
         <span class="arrow">&#8594;</span>
-        <span>${trip.endLabel || formatTime(trip.endTime)}</span>
+        <span>${endLabel}</span>
       </div>
       <div class="trip-row-bottom">
-        <span class="badge badge-${trip.purpose || "unset"}">${purposeLabel(trip.purpose)}</span>
-        ${amount ? `<span class="muted small">${amount}</span>` : ""}
+        <span class="badge badge-${purpose}">${purposeLabel(trip.purpose)}</span>
+        ${amount ? `<span class="muted small">${escapeHtml(amount)}</span>` : ""}
       </div>
     </button>
     ${
       showReadyAction
-        ? `<button class="trip-row-check" data-ready="${trip.id}" type="button" aria-label="Mark ready">&#10003;</button>`
+        ? `<button class="trip-row-check" data-ready="${id}" type="button" aria-label="Mark ready">&#10003;</button>`
         : ""
     }
   </li>`;
@@ -392,7 +400,7 @@ function renderReport() {
         ${byPurpose
           .map(
             (b) =>
-              `<li><span class="badge badge-${b.p}">${purposeLabel(b.p)}</span><span>${b.count} trips &middot; ${formatDistance(b.km, state.settings)} &middot; ${formatAmount(b.km, state.settings)}</span></li>`,
+              `<li><span class="badge badge-${b.p}">${purposeLabel(b.p)}</span><span>${b.count} trips &middot; ${formatDistance(b.km, state.settings)} &middot; ${escapeHtml(formatAmount(b.km, state.settings))}</span></li>`,
           )
           .join("")}
       </ul>`;
@@ -414,19 +422,22 @@ function renderReport() {
 
 function renderSettings() {
   const s = state.settings;
+  const vehicleName = escapeHtml(s.vehicleName || "");
+  const currency = escapeHtml(s.currency || "");
+  const distanceUnit = escapeHtml(s.distanceUnit || "km");
   el.viewRoot.innerHTML = `
     <div class="panel">
       <h2>Settings</h2>
       <form id="settings-form">
-        <label>Vehicle name <input type="text" id="s-vehicle" value="${s.vehicleName || ""}" /></label>
+        <label>Vehicle name <input type="text" id="s-vehicle" value="${vehicleName}" /></label>
         <label>Distance unit
           <select id="s-unit">
             <option value="km" ${s.distanceUnit === "km" ? "selected" : ""}>Kilometers</option>
             <option value="mi" ${s.distanceUnit === "mi" ? "selected" : ""}>Miles</option>
           </select>
         </label>
-        <label>Mileage rate (per ${s.distanceUnit}) <input type="number" id="s-rate" min="0" step="0.01" value="${s.mileageRate || 0}" /></label>
-        <label>Currency symbol <input type="text" id="s-currency" value="${s.currency || ""}" /></label>
+        <label>Mileage rate (per ${distanceUnit}) <input type="number" id="s-rate" min="0" step="0.01" value="${Number(s.mileageRate) || 0}" /></label>
+        <label>Currency symbol <input type="text" id="s-currency" value="${currency}" /></label>
         <label>Default purpose
           <select id="s-purpose">
             <option value="" ${!s.defaultPurpose ? "selected" : ""}>Unset</option>
@@ -476,9 +487,16 @@ function renderSettings() {
       const text = await file.text();
       const payload = JSON.parse(text);
       if (!Array.isArray(payload.trips)) throw new Error("Invalid backup file.");
-      if (!confirm(`Import ${payload.trips.length} trips? This replaces all current trips.`)) return;
-      await db.replaceAllTrips(payload.trips);
-      if (payload.settings) state.settings = await db.saveSettings(payload.settings);
+      if (payload.trips.length > MAX_IMPORTED_TRIPS) {
+        throw new Error(`Backup file has too many trips (max ${MAX_IMPORTED_TRIPS}).`);
+      }
+      // The file is untrusted input, so every trip/setting is re-validated and
+      // re-typed here rather than written to storage as-is.
+      const cleanedTrips = payload.trips.map(sanitizeImportedTrip).filter(Boolean);
+      if (!confirm(`Import ${cleanedTrips.length} trips? This replaces all current trips.`)) return;
+      await db.replaceAllTrips(cleanedTrips);
+      const cleanedSettings = sanitizeImportedSettings(payload.settings);
+      if (cleanedSettings) state.settings = await db.saveSettings(cleanedSettings);
       state.trips = await db.getAllTrips();
       render();
     } catch (err) {

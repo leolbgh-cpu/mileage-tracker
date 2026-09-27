@@ -65,6 +65,35 @@ Since it's fully static with no backend, database, or secrets, you can just
 as easily deploy it to Cloudflare Pages, Netlify, Vercel, or any other static
 host instead.
 
+## Security
+
+- **No login/passcode by design.** There's no server to authenticate against,
+  and adding a device passcode would only be meaningful if it also encrypted
+  the data at rest — which trades away recoverability (forget the passcode,
+  lose the data, permanently, with no backdoor). That trade-off was
+  deliberately left out in favor of an always-open personal tool; anyone with
+  access to your unlocked device already has access to the app.
+- **Content-Security-Policy** is set via a `<meta>` tag restricting scripts,
+  styles, and network connections to same-origin only, with `object-src`,
+  `base-uri`, and `form-action` all disabled. (Static hosts like GitHub Pages
+  don't support custom HTTP response headers, so this is enforced via meta
+  tag rather than a real CSP header; `frame-ancestors` isn't honored that way,
+  so clickjacking framing isn't blocked at the HTTP level — a minor accepted
+  gap given the low-value target.)
+- **Backup import is treated as untrusted input.** Every trip/setting field
+  from an imported JSON file is re-validated, type-checked, and length-capped
+  before being written to storage, and a fresh internal ID is always assigned
+  rather than trusting the file's own ID. This closes a stored-XSS path where
+  a crafted or tampered backup file could otherwise inject working HTML
+  (`<img onerror=...>`, attribute-breakout payloads, etc.) into the trip list
+  or settings form.
+- **All rendered text is HTML-escaped** at render time (not just at the
+  import boundary), so this holds even if a future code change reintroduces
+  unsanitized data some other way.
+- **CSV export defuses formula injection**: any cell whose text starts with
+  `=`, `+`, `-`, or `@` (interpreted as a live formula by Excel/Sheets) is
+  prefixed with `'` so it opens as inert text instead.
+
 ## Data & privacy
 
 - All trips and settings are stored in your browser's IndexedDB, scoped to

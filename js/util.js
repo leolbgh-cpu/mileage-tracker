@@ -78,8 +78,24 @@ export function purposeLabel(purpose) {
   return { business: "Business", personal: "Personal", commute: "Commute" }[purpose] || "Unset";
 }
 
+const HTML_ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+
+// Every trip field can come from an imported backup file, not just the app's own
+// forms, so anything interpolated into innerHTML must be escaped at render time
+// rather than trusted from where it was written.
+export function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (ch) => HTML_ESCAPES[ch]);
+}
+
+// A cell starting with = + - @ is executed as a formula by Excel/Sheets when the
+// CSV is opened, so free-text fields (notes, labels) need a guard beyond quoting.
+const CSV_FORMULA_PREFIXES = ["=", "+", "-", "@", "\t", "\r"];
+
 export function escapeCsv(value) {
-  const s = String(value ?? "");
+  let s = String(value ?? "");
+  if (CSV_FORMULA_PREFIXES.some((prefix) => s.startsWith(prefix))) {
+    s = "'" + s;
+  }
   if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
@@ -110,6 +126,72 @@ export function tripsToCsv(trips, settings) {
     t.notes || "",
   ]);
   return [header, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\n");
+}
+
+const VALID_PURPOSES = new Set(["", "business", "personal", "commute"]);
+const VALID_STATUSES = new Set(["ready", "needs_review"]);
+const VALID_SOURCES = new Set(["manual", "tracked"]);
+export const MAX_IMPORTED_TRIPS = 20000;
+
+function clampText(value, maxLen) {
+  return String(value ?? "").slice(0, maxLen);
+}
+
+function toIsoOrNull(value) {
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+function cleanCoords(value) {
+  if (
+    value &&
+    typeof value === "object" &&
+    Number.isFinite(value.lat) &&
+    Number.isFinite(value.lon) &&
+    Math.abs(value.lat) <= 90 &&
+    Math.abs(value.lon) <= 180
+  ) {
+    return { lat: value.lat, lon: value.lon };
+  }
+  return null;
+}
+
+// A backup file is untrusted input (it may have been shared, edited, or crafted
+// by someone else) — every field is re-typed and bounded here rather than
+// trusted as-is, and a fresh id is always assigned instead of reusing the file's.
+export function sanitizeImportedTrip(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const startTime = toIsoOrNull(raw.startTime);
+  if (!startTime) return null;
+  const distanceKm = Number(raw.distanceKm);
+  return {
+    id: uid(),
+    status: VALID_STATUSES.has(raw.status) ? raw.status : "needs_review",
+    purpose: VALID_PURPOSES.has(raw.purpose) ? raw.purpose : "",
+    startTime,
+    endTime: toIsoOrNull(raw.endTime) || startTime,
+    startLabel: clampText(raw.startLabel, 200),
+    endLabel: clampText(raw.endLabel, 200),
+    startCoords: cleanCoords(raw.startCoords),
+    endCoords: cleanCoords(raw.endCoords),
+    distanceKm: Number.isFinite(distanceKm) && distanceKm >= 0 ? distanceKm : 0,
+    vehicle: clampText(raw.vehicle, 120),
+    notes: clampText(raw.notes, 2000),
+    source: VALID_SOURCES.has(raw.source) ? raw.source : "manual",
+    createdAt: toIsoOrNull(raw.createdAt) || new Date().toISOString(),
+  };
+}
+
+export function sanitizeImportedSettings(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const rate = Number(raw.mileageRate);
+  return {
+    vehicleName: clampText(raw.vehicleName, 120),
+    distanceUnit: raw.distanceUnit === "mi" ? "mi" : "km",
+    mileageRate: Number.isFinite(rate) && rate >= 0 ? rate : 0,
+    currency: clampText(raw.currency, 10),
+    defaultPurpose: VALID_PURPOSES.has(raw.defaultPurpose) ? raw.defaultPurpose : "",
+  };
 }
 
 export function downloadFile(filename, content, mime) {
