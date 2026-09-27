@@ -1,4 +1,4 @@
-const CACHE_NAME = "mileage-tracker-v1";
+const CACHE_NAME = "mileage-tracker-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -7,6 +7,9 @@ const ASSETS = [
   "./js/db.js",
   "./js/geo.js",
   "./js/util.js",
+  "./js/auth.js",
+  "./js/auth-config.js",
+  "./js/jwt.js",
   "./manifest.webmanifest",
   "./icons/icon.svg",
 ];

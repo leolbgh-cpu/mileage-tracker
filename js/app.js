@@ -21,6 +21,7 @@ import {
   sanitizeImportedSettings,
   MAX_IMPORTED_TRIPS,
 } from "./util.js";
+import { getSession, startGoogleSignIn, signOut } from "./auth.js";
 
 const state = {
   view: "inbox",
@@ -51,7 +52,45 @@ const el = {
   recordingDistance: document.getElementById("recording-distance"),
   recordingElapsed: document.getElementById("recording-elapsed"),
   stopRecordingBtn: document.getElementById("stop-recording-btn"),
+  appRoot: document.getElementById("app"),
+  loginScreen: document.getElementById("login-screen"),
+  loginError: document.getElementById("login-error"),
+  googleSigninButton: document.getElementById("google-signin-button"),
 };
+
+async function boot() {
+  const session = getSession();
+  if (session) {
+    showApp();
+    return;
+  }
+  showLogin();
+}
+
+function showLogin() {
+  el.loginScreen.classList.remove("hidden");
+  el.appRoot.classList.add("hidden");
+  startGoogleSignIn(el.googleSigninButton, {
+    onError: (err) => {
+      el.loginError.textContent = err.message;
+      el.loginError.classList.remove("hidden");
+    },
+  })
+    .then(() => {
+      el.loginError.classList.add("hidden");
+      showApp();
+    })
+    .catch((err) => {
+      el.loginError.textContent = err.message;
+      el.loginError.classList.remove("hidden");
+    });
+}
+
+function showApp() {
+  el.loginScreen.classList.add("hidden");
+  el.appRoot.classList.remove("hidden");
+  init();
+}
 
 async function init() {
   const [trips, settings] = await Promise.all([db.getAllTrips(), db.getSettings()]);
@@ -425,7 +464,13 @@ function renderSettings() {
   const vehicleName = escapeHtml(s.vehicleName || "");
   const currency = escapeHtml(s.currency || "");
   const distanceUnit = escapeHtml(s.distanceUnit || "km");
+  const session = getSession();
   el.viewRoot.innerHTML = `
+    <div class="panel">
+      <h2>Account</h2>
+      <p class="muted small">${session ? `Signed in as ${escapeHtml(session.email)}` : "Not signed in"}</p>
+      <button id="sign-out-btn" class="btn btn-secondary btn-block">Sign out</button>
+    </div>
     <div class="panel">
       <h2>Settings</h2>
       <form id="settings-form">
@@ -504,6 +549,11 @@ function renderSettings() {
     }
   });
 
+  document.getElementById("sign-out-btn").addEventListener("click", () => {
+    signOut();
+    location.reload();
+  });
+
   document.getElementById("clear-data-btn").addEventListener("click", async () => {
     if (!confirm("Delete all trips? This cannot be undone.")) return;
     await db.clearAll();
@@ -518,4 +568,4 @@ function registerServiceWorker() {
   }
 }
 
-init();
+boot();
